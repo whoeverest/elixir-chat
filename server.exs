@@ -1,7 +1,7 @@
 defmodule Chat do
     def init do
         {:ok, socket} = :gen_tcp.listen(8333, [:binary, packet: :line, active: false])
-        b_pid = spawn fn -> broadcaster [] end
+        b_pid = spawn fn -> broadcaster_loop [] end
         acceptor_loop(b_pid, socket)
     end
 
@@ -14,13 +14,20 @@ defmodule Chat do
 
     def send_all(clients, msg) do
         Enum.each clients, fn c -> :gen_tcp.send c, msg end
-        broadcaster(clients)
     end
 
-    def broadcaster(clients) do
+    def handle_new_client(clients) do
+        send_all clients, "new client joined\n"
+    end
+
+    def broadcaster_loop(clients) do
         receive do
-            {:new_client, client} -> broadcaster  [client] ++ clients
-            {:new_message, msg}   -> send_all clients, msg
+            {:new_client, client} ->
+                handle_new_client clients
+                broadcaster_loop [client] ++ clients
+            {:new_message, msg}   ->
+                send_all clients, msg
+                broadcaster_loop clients
         end
     end
 
